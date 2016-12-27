@@ -299,6 +299,7 @@ class Table(MutableSequence, Storage):
                 if is_sparse == sp.issparse(x):
                     return x
                 elif is_sparse:
+                    x = np.asarray(x)
                     return sp.csc_matrix(x.reshape(-1, 1).astype(np.float))
                 else:
                     return np.ravel(x.toarray())
@@ -944,6 +945,12 @@ class Table(MutableSequence, Storage):
                 (self._Y.base is None) and
                 (self.metas.base is None) and
                 (self.W.base is None))
+
+    def is_sparse(self):
+        """
+        Return `True` if the table stores data in sparse format
+        """
+        return any(sp.issparse(i) for i in [self.X, self.Y, self.metas])
 
     def ensure_copy(self):
         """

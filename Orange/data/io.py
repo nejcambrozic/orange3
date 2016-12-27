@@ -29,6 +29,9 @@ from Orange.data import (
 from Orange.util import Registry, flatten, namegen
 
 
+__all__ = ["Flags", "FileFormat"]
+
+
 _IDENTITY = lambda i: i
 
 
@@ -211,6 +214,7 @@ class FileFormat(metaclass=FileFormatMeta):
         EXTENSIONS = ('.ext1', '.ext2', ...)
         DESCRIPTION = 'human-readable file format description'
         SUPPORT_COMPRESSED = False
+        SUPPORT_SPARSE_DATA = False
 
         def read(self):
             ...  # load headers, data, ...
@@ -681,6 +685,7 @@ class CSVReader(FileFormat):
     DESCRIPTION = 'Comma-separated values'
     DELIMITERS = ',;:\t$ '
     SUPPORT_COMPRESSED = True
+    SUPPORT_SPARSE_DATA = False
     PRIORITY = 20
 
     def read(self):
@@ -755,6 +760,7 @@ class PickleReader(FileFormat):
     """Reader for pickled Table objects"""
     EXTENSIONS = ('.pickle', '.pkl')
     DESCRIPTION = 'Pickled Python object file'
+    SUPPORT_SPARSE_DATA = True
 
     def read(self):
         with open(self.filename, 'rb') as f:
@@ -770,6 +776,7 @@ class BasketReader(FileFormat):
     """Reader for basket (sparse) files"""
     EXTENSIONS = ('.basket', '.bsk')
     DESCRIPTION = 'Basket file'
+    SUPPORT_SPARSE_DATA = True
 
     def read(self):
         def constr_vars(inds):
@@ -794,6 +801,7 @@ class ExcelReader(FileFormat):
     """Reader for excel files"""
     EXTENSIONS = ('.xls', '.xlsx')
     DESCRIPTION = 'Mircosoft Excel spreadsheet'
+    SUPPORT_SPARSE_DATA = False
 
     def __init__(self, filename):
         super().__init__(filename)
@@ -835,6 +843,7 @@ class DotReader(FileFormat):
     EXTENSIONS = ('.dot', '.gv')
     DESCRIPTION = 'Dot graph description'
     SUPPORT_COMPRESSED = True
+    SUPPORT_SPARSE_DATA = False
 
     @classmethod
     def write_graph(cls, filename, graph):
