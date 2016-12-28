@@ -44,10 +44,24 @@ class OWMultipleSequenceAlignment(OWWidget):
     def commit(self):
         self.send("Distances", self.compute_alignment(self.data))
 
+    def computeDistance(self, s, p):
+        return -1.0
+
     def compute_alignment(self, data):
+        #HACK
+        n = len([row[0] for row in data])
+        print([row[0].value for row in data])
+        outdata = np.zeros([n, n])
+        for i, row in enumerate(data):
+            for j, rowCompare in enumerate(data):
+                if i != j:
+                    outdata[i, j] = self.computeDistance(str(row[0].value), str(rowCompare[0].value))
+
+
+
         """ Mock """
-        mockdata = [range(0, 4), range(4, 8), range(8, 12), range(12, 16)]
-        self.raw_output = Orange.misc.DistMatrix(np.array(mockdata, np.int32))
+        #data = [range(0, 4), range(4, 8), range(8, 12), range(12, 16)]
+        self.raw_output = Orange.misc.DistMatrix(np.array(outdata))
         # TODO align given sequences and return edit distance matrix
         return self.raw_output
 
@@ -61,8 +75,7 @@ class OWMultipleSequenceAlignment(OWWidget):
     displays (currently nothing), then
     unncoment ow.show() line
 
- TODO: FIGURE OUT HOW TO ACUTALLY USE STRINGS
-       figure out, why it throws error after
+ TODO: figure out, why it throws error after
        finishing,
        figure out how to properly pipe output
        without using raw_output
@@ -71,20 +84,27 @@ if __name__ == "__main__":
     import sys
     from AnyQt.QtWidgets import QApplication
     from Orange.data import Table
+    from Orange.data.domain import Domain, DiscreteVariable, ContinuousVariable
     from Orange.widgets.unsupervised.owdistancematrix import OWDistanceMatrix
 
     a = QApplication(sys.argv)
     ow = OWMultipleSequenceAlignment()
-    d = Table('housing') #set data
+
+    #setup test data
+    domain = Domain([DiscreteVariable(name="dna", values=["TTAAACTGAA", "ACTGTATAACTG", "ACTGACTG"])])
+    data = np.array([[0], [1], [2], [2]]) #this data MUST be a 2d array -> otherwise id doesn't work
+    d = Table.from_numpy(domain=domain, X=data)
+
+    #set the data
     ow.set_data(d)
 
+    #show this widget -> currently empty
     #ow.show()
 
+    #setup and show distance matrix
     disp = OWDistanceMatrix()
     disp.set_distances(ow.raw_output)
     disp.show()
     a.exec_()
 
-    ow.saveSettings()
-    disp.saveSettings()
 
