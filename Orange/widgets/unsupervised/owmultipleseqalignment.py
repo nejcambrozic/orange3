@@ -61,7 +61,8 @@ class OWMultipleSequenceAlignment(OWWidget):
     displays (currently nothing), then
     unncoment ow.show() line
 
- TODO: figure out, why it throws error after
+ TODO: FIGURE OUT HOW TO ACUTALLY USE STRINGS
+       figure out, why it throws error after
        finishing,
        figure out how to properly pipe output
        without using raw_output
@@ -73,7 +74,7 @@ if __name__ == "__main__":
     from Orange.widgets.unsupervised.owdistancematrix import OWDistanceMatrix
 
     a = QApplication(sys.argv)
-    ow = OWMultipleSequenceAlignement()
+    ow = OWMultipleSequenceAlignment()
     d = Table('housing') #set data
     ow.set_data(d)
 
