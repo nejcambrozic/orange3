@@ -7,13 +7,15 @@ from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
 
 
-class OWDistances(OWWidget):
+class OWMultipleSequenceAlignment(OWWidget):
     name = "Multiple Sequence Alignment"
     description = "Compute a matrix of pairwise sequence alignment distance."
     icon = "icons/MultipleSeqAlignment.svg"
 
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix)]
+
+    raw_output = Orange.misc.DistMatrix(np.array([]))
 
     class Error(OWWidget.Error):
         no_continuous_features = Msg("No continuous features")
@@ -44,6 +46,44 @@ class OWDistances(OWWidget):
 
     def compute_alignment(self, data):
         """ Mock """
-        d = Orange.misc.DistMatrix(np.array([[1, 2, 3], [4, 5, 6]], np.int32))
+        mockdata = [range(0, 4), range(4, 8), range(8, 12), range(12, 16)]
+        self.raw_output = Orange.misc.DistMatrix(np.array(mockdata, np.int32))
         # TODO align given sequences and return edit distance matrix
-        return d
+        return self.raw_output
+
+"""
+ Reads some data from a table file and sets it as
+ the input of this widget.
+ Then pipes the output of this widget into the
+ distance matrix widget to show the results
+
+ NOTE: if you wish to see anything the widget
+    displays (currently nothing), then
+    unncoment ow.show() line
+
+ TODO: figure out, why it throws error after
+       finishing,
+       figure out how to properly pipe output
+       without using raw_output
+"""
+if __name__ == "__main__":
+    import sys
+    from AnyQt.QtWidgets import QApplication
+    from Orange.data import Table
+    from Orange.widgets.unsupervised.owdistancematrix import OWDistanceMatrix
+
+    a = QApplication(sys.argv)
+    ow = OWMultipleSequenceAlignement()
+    d = Table('housing') #set data
+    ow.set_data(d)
+
+    #ow.show()
+
+    disp = OWDistanceMatrix()
+    disp.set_distances(ow.raw_output)
+    disp.show()
+    a.exec_()
+
+    ow.saveSettings()
+    disp.saveSettings()
+
