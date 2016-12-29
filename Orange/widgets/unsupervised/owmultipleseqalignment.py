@@ -44,26 +44,45 @@ class OWMultipleSequenceAlignment(OWWidget):
     def commit(self):
         self.send("Distances", self.compute_alignment(self.data))
 
-    def computeDistance(self, s, p):
-        return -1.0
+    def edit_distance(self, s, p):
+        """
+        Returns the minimum edit distance of alignment of s and p
+        """
+        # init matrices
+        dp = np.zeros((len(s) + 1, len(p) + 1), dtype=int)
+
+        # init first column and row of dynamic programming table
+        for col in range(1, len(s) + 1):
+            dp[col][0] = col
+        for row in range(1, len(p) + 1):
+            dp[0][row] = row
+
+        # compute dynamic programming table
+        for i in range(1, len(s) + 1):
+            for j in range(1, len(p) + 1):
+                dp[i, j] = min(dp[i - 1, j] + 1,
+                               dp[i, j - 1] + 1,
+                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]))
+
+        # min edit distance is most bottom right element of dp
+        min_distance = dp[len(s), len(p)]
+
+        return min_distance
 
     def compute_alignment(self, data):
-        #HACK
+        # HACK
         n = len([row[0] for row in data])
         print([row[0].value for row in data])
         outdata = np.zeros([n, n])
         for i, row in enumerate(data):
             for j, rowCompare in enumerate(data):
                 if i != j:
-                    outdata[i, j] = self.computeDistance(str(row[0].value), str(rowCompare[0].value))
-
-
+                    outdata[i, j] = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
 
         """ Mock """
-        #data = [range(0, 4), range(4, 8), range(8, 12), range(12, 16)]
         self.raw_output = Orange.misc.DistMatrix(np.array(outdata))
-        # TODO align given sequences and return edit distance matrix
         return self.raw_output
+
 
 """
  Reads some data from a table file and sets it as
@@ -90,21 +109,19 @@ if __name__ == "__main__":
     a = QApplication(sys.argv)
     ow = OWMultipleSequenceAlignment()
 
-    #setup test data
+    # setup test data
     domain = Domain([DiscreteVariable(name="dna", values=["TTAAACTGAA", "ACTGTATAACTG", "ACTGACTG"])])
-    data = np.array([[0], [1], [2], [2]]) #this data MUST be a 2d array -> otherwise id doesn't work
+    data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
     d = Table.from_numpy(domain=domain, X=data)
 
-    #set the data
+    # set the data
     ow.set_data(d)
 
-    #show this widget -> currently empty
-    #ow.show()
+    # show this widget -> currently empty
+    # ow.show()
 
-    #setup and show distance matrix
+    # setup and show distance matrix
     disp = OWDistanceMatrix()
     disp.set_distances(ow.raw_output)
     disp.show()
     a.exec_()
-
-
