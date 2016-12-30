@@ -1,7 +1,7 @@
 import numpy as np
 from AnyQt.QtCore import Qt
 
-import Orange.data
+from Orange.data import Table, Domain, StringVariable
 import Orange.misc
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
@@ -18,14 +18,14 @@ class OWMultipleSequenceAlignment(OWWidget):
     raw_output = Orange.misc.DistMatrix(np.array([]))
 
     class Error(OWWidget.Error):
-        no_continuous_features = Msg("No continuous features")
-        dense_metric_sparse_data = Msg("Selected metric does not support sparse data")
+        no_discrete_features = Msg("No discrete features")
         empty_data = Msg("Empty data (shape = {})")
-        too_few_observations = Msg("Too few observations for the number of dimensions")
+        no_meta_data = Msg("One column must be meta")
 
     class Warning(OWWidget.Warning):
         ignoring_discrete = Msg("Ignoring discrete features")
         imputing_data = Msg("Imputing missing values")
+
 
     def __init__(self):
         super().__init__()
@@ -70,17 +70,31 @@ class OWMultipleSequenceAlignment(OWWidget):
         return min_distance
 
     def compute_alignment(self, data):
+        # Check data
+        self.clear_messages()
+        if data is None:
+            return
+        if len(data.domain.metas) < 1:
+            self.Error.no_meta_data()
+            return
+        if not any(a.is_discrete for a in data.domain.attributes):
+            self.Error.no_discrete_features()
+            return
+
         # HACK
-        n = len([row[0] for row in data])
-        print([row[0].value for row in data])
+        n = data.approx_len()
         outdata = np.zeros([n, n])
         for i, row in enumerate(data):
             for j, rowCompare in enumerate(data):
                 if i != j:
                     outdata[i, j] = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
 
+        labels = Table.from_list(
+            Domain([], metas=[StringVariable("label")]),
+            [[item] for item in data.get_column_view(data.domain.metas[0])[0]])
+
         """ Mock """
-        self.raw_output = Orange.misc.DistMatrix(np.array(outdata))
+        self.raw_output = Orange.misc.DistMatrix(data=np.array(outdata), row_items=labels)
         return self.raw_output
 
 
@@ -103,16 +117,18 @@ if __name__ == "__main__":
     import sys
     from AnyQt.QtWidgets import QApplication
     from Orange.data import Table
-    from Orange.data.domain import Domain, DiscreteVariable, ContinuousVariable
+    from Orange.data.domain import Domain, DiscreteVariable, StringVariable
     from Orange.widgets.unsupervised.owdistancematrix import OWDistanceMatrix
 
     a = QApplication(sys.argv)
     ow = OWMultipleSequenceAlignment()
 
     # setup test data
-    domain = Domain([DiscreteVariable(name="dna", values=["TTAAACTGAA", "ACTGTATAACTG", "ACTGACTG"])])
+    domain = Domain([DiscreteVariable(name="dnaSeq", values=["TTAAACTGAA", "ACTGTATAACTG", "ACTGACTG"])], [],
+                        [StringVariable(name="dnaName")])
     data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
-    d = Table.from_numpy(domain=domain, X=data)
+    metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna3"]])
+    d = Table.from_numpy(domain=domain, X=data, metas=metas)
 
     # set the data
     ow.set_data(d)
