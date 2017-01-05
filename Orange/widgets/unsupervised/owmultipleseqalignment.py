@@ -85,9 +85,10 @@ class OWMultipleSequenceAlignment(OWWidget):
         n = data.approx_len()
         outdata = np.zeros([n, n])
         for i, row in enumerate(data):
-            for j, rowCompare in enumerate(data):
-                if i != j:
-                    outdata[i, j] = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
+            for j, rowCompare in enumerate(data[i+1::], i+1):
+                dist = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
+                outdata[i, j] = dist
+                outdata[j, i] = dist
 
         labels = Table.from_list(
             Domain([], metas=[StringVariable("label")]),
