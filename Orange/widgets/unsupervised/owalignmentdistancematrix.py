@@ -219,7 +219,7 @@ class AlignmentWidget(QPlainTextEdit):
 class OWAlignmentDistanceMatrix(widget.OWWidget):
     name = "Alignment Distance Matrix"
     description = "View distance matrix with alignment backtracing."
-    icon = "icons/DistanceMatrix.svg"
+    icon = "icons/AlignmentDistanceMatrix.svg"
     priority = 201
 
     inputs = [("Distances", DistMatrix, "set_distances"),
