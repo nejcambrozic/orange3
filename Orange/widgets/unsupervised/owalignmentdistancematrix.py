@@ -4,9 +4,9 @@ import itertools
 import numpy as np
 
 from AnyQt.QtWidgets import QTableView, QItemDelegate, QHeaderView, QPlainTextEdit
-from AnyQt.QtGui import QColor, QPen, QBrush
+from AnyQt.QtGui import QColor, QPen, QBrush, QFont
 from AnyQt.QtCore import Qt, QAbstractTableModel, QModelIndex, \
-    QItemSelectionModel, QItemSelection, QSize, QPoint
+    QItemSelectionModel, QItemSelection, QSize
 
 from Orange.data import Table, Variable, ContinuousVariable, DiscreteVariable
 from Orange.misc import DistMatrix
@@ -206,7 +206,8 @@ class AlignmentWidget(QPlainTextEdit):
         self.setFocus()
         self.setMinimumSize(300, 60)
         self.move((parent.width() - self.width()) / 2, (parent.height() - self.height()) / 2)
-        self.setPlainText("\n".join(self.getAlignment(s1, s2)))
+        self.setFont(QFont("Courier", 10))
+        self.setPlainText("\n".join(self.get_alignment(s1, s2)))
 
     def insert_indel(self, word, index):
         return word[:index] + '-' + word[index:]
