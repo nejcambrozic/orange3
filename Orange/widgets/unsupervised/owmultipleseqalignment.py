@@ -13,7 +13,8 @@ class OWMultipleSequenceAlignment(OWWidget):
     icon = "icons/MultipleSeqAlignment.svg"
 
     inputs = [("Data", Orange.data.Table, "set_data")]
-    outputs = [("Distances", Orange.misc.DistMatrix)]
+    outputs = [("Distances", Orange.misc.DistMatrix),
+               ("Strings", Orange.data.Table)]
 
     raw_output = Orange.misc.DistMatrix(np.array([]))
 
@@ -43,6 +44,7 @@ class OWMultipleSequenceAlignment(OWWidget):
 
     def commit(self):
         self.send("Distances", self.compute_alignment(self.data))
+        self.send("Strings", self.data)
 
     def edit_distance(self, s, p):
         """
