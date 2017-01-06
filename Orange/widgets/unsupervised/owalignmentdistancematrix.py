@@ -208,9 +208,54 @@ class AlignmentWidget(QPlainTextEdit):
         self.move((parent.width() - self.width()) / 2, (parent.height() - self.height()) / 2)
         self.setPlainText("\n".join(self.getAlignment(s1, s2)))
 
-    def getAlignment(self, s1, s2):
+    def insert_indel(self, word, index):
+        return word[:index] + '-' + word[index:]
+
+    def get_alignment(self, s, p):
         # TODO: implement - return best alignment as a pair of strings
-        return s1, s2
+        """
+        Returns the best alignments of s and p
+        """
+        # init matrices
+        dp = np.zeros((len(s) + 1, len(p) + 1), dtype=int)
+        bt = np.zeros((len(s) + 1, len(p) + 1), dtype=int)
+
+        # init first column and row of dynamic programming table
+        for col in range(1, len(s) + 1):
+            dp[col][0] = col
+        for row in range(1, len(p) + 1):
+            dp[0][row] = row
+
+        # compute dynamic programming table and track best path
+        for i in range(1, len(s) + 1):
+            for j in range(1, len(p) + 1):
+                (dp[i, j], bt[i, j]) = min( (dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]), 0), # diagonal
+                                            (dp[i - 1, j] + 1, 1), # horizontal
+                                            (dp[i, j - 1] + 1, 2)) # vertical
+
+
+        # initialize the aligned strings as the input strings
+        s_aligned, p_aligned = s, p
+
+        # backtrack to the edge of the matrix starting bottom right
+        while i * j != 0:
+            if bt[i][j] == 1: # horizontal
+                i -= 1
+                p_aligned = self.insert_indel(p_aligned, j)
+            elif bt[i][j] == 2: # vertical
+                j -= 1
+                s_aligned = self.insert_indel(s_aligned, i)
+            else: # diagonal
+                i -= 1
+                j -= 1
+
+        # prepend indels until (0,0)
+        for repeat in range(i):
+            p_aligned = self.insert_indel(p_aligned, 0)
+        for repeat in range(j):
+            s_aligned = self.insert_indel(s_aligned, 0)
+
+        return s_aligned, p_aligned
 
     def focusOutEvent(self, e):
         self.close()
