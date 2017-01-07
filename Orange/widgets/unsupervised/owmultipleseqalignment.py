@@ -1,16 +1,31 @@
 import numpy as np
 from AnyQt.QtCore import Qt
 
+
 from Orange.data import Table, Domain, StringVariable
 import Orange.misc
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
+from Orange.widgets import gui
+from Orange.widgets.settings import Setting
 
 
 class OWMultipleSequenceAlignment(OWWidget):
     name = "Multiple Sequence Alignment"
     description = "Compute a matrix of pairwise sequence alignment distance."
     icon = "icons/MultipleSeqAlignment.svg"
+
+    align_score = 0
+    align_setting = Setting(False)
+    misalign_score = 1
+    misalign_setting = Setting(False)
+    indel_score = 1
+    indel_setting = Setting(False)
+
+    # Spinner arguments: label, value, minval, maxval, checked
+    score_settings = (('Custom alignment score', 'align_score', -100, 0, 'align_setting'),
+                      ('Custom misalignment score', 'misalign_score', 0, 100, 'misalign_setting'),
+                      ('Custom indel score', 'indel_score', 0, 100, 'indel_setting'))
 
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),
@@ -27,12 +42,26 @@ class OWMultipleSequenceAlignment(OWWidget):
         ignoring_discrete = Msg("Ignoring discrete features")
         imputing_data = Msg("Imputing missing values")
 
-
     def __init__(self):
         super().__init__()
 
         self.data = None
-        # No gui
+
+        box = gui.vBox(self.controlArea, "Parameters")
+
+        for lab, val, minval, maxval, chck in self.score_settings:
+            gui.spin(box, self, val, minval, maxval, label=lab, checked=chck)
+
+        gui.button(box, self, 'Update parameters', callback=self._invalidate, default=True)
+
+    def _invalidate(self):
+        if not self.misalign_setting:
+            self.misalign_score = 1
+        if not self.align_setting:
+            self.align_score = 0
+        if not self.indel_setting:
+            self.indel_score = 1
+        self.commit()
 
     @check_sql_input
     def set_data(self, data):
@@ -62,9 +91,11 @@ class OWMultipleSequenceAlignment(OWWidget):
         # compute dynamic programming table
         for i in range(1, len(s) + 1):
             for j in range(1, len(p) + 1):
-                dp[i, j] = min(dp[i - 1, j] + 1,
-                               dp[i, j - 1] + 1,
-                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]))
+                dp[i, j] = min(dp[i - 1, j] + self.indel_score,
+                               dp[i, j - 1] + self.indel_score,
+                               # dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]))
+                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]) * self.misalign_score + (s[i - 1] == p[j - 1])
+                               * self.align_score)
 
         # min edit distance is most bottom right element of dp
         min_distance = dp[len(s), len(p)]
