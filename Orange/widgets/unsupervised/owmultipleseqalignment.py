@@ -1,13 +1,13 @@
 import numpy as np
 from AnyQt.QtCore import Qt
 
-
-from Orange.data import Table, Domain, StringVariable
+from Orange.data import Table
 import Orange.misc
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
 from Orange.widgets import gui
 from Orange.widgets.settings import Setting
+
 
 
 class OWMultipleSequenceAlignment(OWWidget):
@@ -29,7 +29,8 @@ class OWMultipleSequenceAlignment(OWWidget):
 
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),
-               ("Strings", Orange.data.Table)]
+               ("Strings", Orange.data.Table),
+               ("Alignments", Orange.data.Table)]
 
     raw_output = Orange.misc.DistMatrix(np.array([]))
 
@@ -46,6 +47,7 @@ class OWMultipleSequenceAlignment(OWWidget):
         super().__init__()
 
         self.data = None
+        self.alignment = None
 
         box = gui.vBox(self.controlArea, "Parameters")
 
@@ -74,33 +76,75 @@ class OWMultipleSequenceAlignment(OWWidget):
     def commit(self):
         self.send("Distances", self.compute_alignment(self.data))
         self.send("Strings", self.data)
+        self.send("Alignments", self.alignment)
 
-    def edit_distance(self, s, p):
-        """
-        Returns the minimum edit distance of alignment of s and p
-        """
-        # init matrices
-        dp = np.zeros((len(s) + 1, len(p) + 1), dtype=int)
+    def edit_distance(self, s, t):
+        def sig(c1, c2):
+            if c1 == "" or c2 == "":
+                return self.indel_score
+            elif c1 == c2:
+                return self.align_score
+            else:
+                return self.misalign_score
 
-        # init first column and row of dynamic programming table
-        for col in range(1, len(s) + 1):
-            dp[col][0] = col
-        for row in range(1, len(p) + 1):
-            dp[0][row] = row
+        # create matrix
+        # M = [[0 for _ in range(len(t) + 1)] for _ in range(len(s) + 1)]
+        M = np.zeros((len(s) + 1, len(t) + 1), dtype=int)
+        d = {}
 
-        # compute dynamic programming table
+        # init sides
+        for i in range(0, len(s) + 1):
+            M[i, 0] = sum([sig(s[k], "") for k in range(i)])
+        for j in range(0, len(t) + 1):
+            M[0, j] = sum([sig("", t[k]) for k in range(j)])
+
+        # fill matrix
         for i in range(1, len(s) + 1):
-            for j in range(1, len(p) + 1):
-                dp[i, j] = min(dp[i - 1, j] + self.indel_score,
-                               dp[i, j - 1] + self.indel_score,
-                               # dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]))
-                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]) * self.misalign_score + (s[i - 1] == p[j - 1])
-                               * self.align_score)
+            for j in range(1, len(t) + 1):
+                val = min(M[i - 1, j] + sig(s[i - 1], ""),
+                           M[i, j - 1] + sig("", t[j - 1]),
+                           M[i - 1, j - 1] + sig(s[i - 1], t[j - 1]))
+                M[i, j] = val
 
-        # min edit distance is most bottom right element of dp
-        min_distance = dp[len(s), len(p)]
+        i = len(s)
+        j = len(t)
 
-        return min_distance
+        def nxt():
+            if i == 0 and j == 0:
+                return (0, 0, 4)
+            if i == 0:
+                return (i, j - 1, 2)
+            if j == 0:
+                return (i - 1, j, 1)
+
+            return min((M[i - 1, j - 1], (i - 1, j - 1, 0)),
+                       (M[i - 1, j], (i - 1, j, 1)),
+                       (M[i, j - 1], (i, j - 1, 2)))[1]
+
+        sp = ""
+        tp = ""
+
+        while i > 0 and j > 0:
+            pi = i
+            pj = j
+            (i, j, mov) = nxt()
+            # print((i, j, mov))
+
+            if mov == 0:
+                sp += s[pi - 1]
+                tp += t[pj - 1]
+            elif mov == 2:
+                sp += "-"
+                tp += t[pj - 1]
+            else:
+                sp += s[pi - 1]
+                tp += "-"
+
+        sp = sp[::-1]
+        tp = tp[::-1]
+        assert(len(sp) == len(tp))
+
+        return M[len(s), len(t)],  sp + "\n" + tp
 
     def compute_alignment(self, data):
         # Check data
@@ -117,17 +161,27 @@ class OWMultipleSequenceAlignment(OWWidget):
         # HACK
         n = data.approx_len()
         outdata = np.zeros([n, n])
+        alignment = np.zeros([n, n])
+        counter = 0
+
+        values = []
+
         for i, row in enumerate(data):
-            for j, rowCompare in enumerate(data[i+1::], i+1):
-                dist = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
+            for j, rowCompare in enumerate(data[i + 1::], i + 1):
+                dist, al = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
                 outdata[i, j] = dist
                 outdata[j, i] = dist
+                alignment[i, j] = counter
+                alignment[j, i] = counter
+                values.append(al) #append the alignement to domain values
+                counter += 1
 
         labels = Table.from_list(
             Domain([], metas=[StringVariable("label")]),
             [[item] for item in data.get_column_view(data.domain.metas[0])[0]])
 
-        """ Mock """
+        domain = Domain([DiscreteVariable(name="Alignments", values=values)]*n)
+        self.alignment = Table.from_numpy(domain=domain, X=alignment)
         self.raw_output = Orange.misc.DistMatrix(data=np.array(outdata), row_items=labels)
         return self.raw_output
 
@@ -152,16 +206,16 @@ if __name__ == "__main__":
     from AnyQt.QtWidgets import QApplication
     from Orange.data import Table
     from Orange.data.domain import Domain, DiscreteVariable, StringVariable
-    from Orange.widgets.unsupervised.owdistancematrix import OWDistanceMatrix
+    from Orange.widgets.unsupervised.owalignmentdistancematrix import OWAlignmentDistanceMatrix
 
     a = QApplication(sys.argv)
     ow = OWMultipleSequenceAlignment()
 
     # setup test data
-    domain = Domain([DiscreteVariable(name="dnaSeq", values=["TTAAACTGAA", "ACTGTATAACTG", "ACTGACTG"])], [],
-                        [StringVariable(name="dnaName")])
+    domain = Domain([DiscreteVariable(name="dnaSeq", values=["ABCD", "ABD", "AAAD"])], [],
+                    [StringVariable(name="dnaName")])
     data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
-    metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna3"]])
+    metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna4"]])
     d = Table.from_numpy(domain=domain, X=data, metas=metas)
 
     # set the data
@@ -171,7 +225,9 @@ if __name__ == "__main__":
     # ow.show()
 
     # setup and show distance matrix
-    disp = OWDistanceMatrix()
+    disp = OWAlignmentDistanceMatrix()
     disp.set_distances(ow.raw_output)
+    disp.set_strings(d)
     disp.show()
     a.exec_()
+
