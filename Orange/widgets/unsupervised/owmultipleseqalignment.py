@@ -27,9 +27,6 @@ class OWMultipleSequenceAlignment(OWWidget):
                       ('Custom misalignment score', 'misalign_score', 0, 100, 'misalign_setting'),
                       ('Custom indel score', 'indel_score', 0, 100, 'indel_setting'))
 
-    # print(indel_score.default, align_score.default, misalign_score.default, Setting(5),
-    #       Setting(False).default)
-
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),
                ("Strings", Orange.data.Table)]
@@ -46,18 +43,11 @@ class OWMultipleSequenceAlignment(OWWidget):
         imputing_data = Msg("Imputing missing values")
 
     def __init__(self):
-        print(self.indel_score, self.align_score, self.misalign_score, Setting(5),
-              Setting(False).default)
         super().__init__()
 
         self.data = None
 
-        # print(self.indel_score.default, self.align_score.default, self.misalign_score.default, Setting(5), Setting(False).default)
-
         box = gui.vBox(self.controlArea, "Parameters")
-        # gui.spin(box, self, 'correct_score', 0, 100, step=1, box=None, label='Custom alignment score:',
-        #     callback=self.commit(),
-        #     checked='correct_setting', disabled=False, alignment=Qt.AlignRight, keyboardTracking=True, spinType=int)
 
         for lab, val, minval, maxval, chck in self.score_settings:
             gui.spin(box, self, val, minval, maxval, label=lab, checked=chck)
@@ -82,7 +72,6 @@ class OWMultipleSequenceAlignment(OWWidget):
         self.commit()
 
     def commit(self):
-        print(self.indel_score, self.align_score, self.misalign_score)
         self.send("Distances", self.compute_alignment(self.data))
         self.send("Strings", self.data)
 
