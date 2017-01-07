@@ -5,6 +5,8 @@ from Orange.data import Table, Domain, StringVariable
 import Orange.misc
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
+from Orange.widgets import gui, settings
+from PyQt4.QtGui import QGridLayout
 
 
 class OWMultipleSequenceAlignment(OWWidget):
@@ -17,6 +19,13 @@ class OWMultipleSequenceAlignment(OWWidget):
                ("Strings", Orange.data.Table)]
 
     raw_output = Orange.misc.DistMatrix(np.array([]))
+
+    miss_penalty = 1
+    skip_penalty = 1
+
+    #DELETE THIS
+    update_skip = settings.Setting(0)
+    update_miss = settings.Setting(0)
 
     class Error(OWWidget.Error):
         no_discrete_features = Msg("No discrete features")
@@ -33,6 +42,30 @@ class OWMultipleSequenceAlignment(OWWidget):
 
         self.data = None
         # No gui
+
+        smbox = gui.vBox(None, margin=0)
+        ssbox = gui.vBox(None, margin=0)
+        self.spin_miss = gui.spin(
+            smbox, self, "miss_penalty", minv=1, maxv=100,
+            controlWidth=80, alignment=Qt.AlignRight, callback=self.update_miss)
+
+        self.spin_skip = gui.spin(
+            ssbox, self, "skip_penalty", minv=1, maxv=100,
+            controlWidth=80, alignment=Qt.AlignRight, callback=self.update_skip)
+
+        buttonbox = gui.vBox(None, margin=0)
+        self.apply_button = gui.button(
+            buttonbox, self, "Run", callback=self.commit)
+
+
+        self.layout().addWidget(gui.widgetLabel(smbox, "Miss penalty: "))
+        self.layout().addWidget(self.spin_miss)
+        self.layout().addWidget(gui.widgetLabel(ssbox, "Skip penalty: "))
+        self.layout().addWidget(self.spin_skip)
+        self.layout().addWidget(self.apply_button)
+
+        self.layout().setSizeConstraint(self.layout().SetFixedSize)
+
 
     @check_sql_input
     def set_data(self, data):
@@ -59,12 +92,19 @@ class OWMultipleSequenceAlignment(OWWidget):
         for row in range(1, len(p) + 1):
             dp[0][row] = row
 
+        if self is not None:
+            skip = self.skip_penalty
+            miss = self.miss_penalty
+        else:
+            skip = 1
+            miss = 1
+
         # compute dynamic programming table
         for i in range(1, len(s) + 1):
             for j in range(1, len(p) + 1):
-                dp[i, j] = min(dp[i - 1, j] + 1,
-                               dp[i, j - 1] + 1,
-                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]))
+                dp[i, j] = min(dp[i - 1, j] + skip,
+                               dp[i, j - 1] + skip,
+                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1])*miss)
 
         # min edit distance is most bottom right element of dp
         min_distance = dp[len(s), len(p)]
@@ -86,6 +126,8 @@ class OWMultipleSequenceAlignment(OWWidget):
         # HACK
         n = data.approx_len()
         outdata = np.zeros([n, n])
+
+
         for i, row in enumerate(data):
             for j, rowCompare in enumerate(data[i+1::], i+1):
                 dist = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
@@ -96,7 +138,6 @@ class OWMultipleSequenceAlignment(OWWidget):
             Domain([], metas=[StringVariable("label")]),
             [[item] for item in data.get_column_view(data.domain.metas[0])[0]])
 
-        """ Mock """
         self.raw_output = Orange.misc.DistMatrix(data=np.array(outdata), row_items=labels)
         return self.raw_output
 
@@ -127,7 +168,7 @@ if __name__ == "__main__":
     ow = OWMultipleSequenceAlignment()
 
     # setup test data
-    domain = Domain([DiscreteVariable(name="dnaSeq", values=["TTAAACTGAA", "ACTGTATAACTG", "ACTGACTG"])], [],
+    domain = Domain([DiscreteVariable(name="dnaSeq", values=["TTAACTGAA", "ACTGTATAACTG", "ACTGACTG"])], [],
                         [StringVariable(name="dnaName")])
     data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
     metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna3"]])
@@ -137,7 +178,8 @@ if __name__ == "__main__":
     ow.set_data(d)
 
     # show this widget -> currently empty
-    # ow.show()
+    ow.show()
+
 
     # setup and show distance matrix
     disp = OWDistanceMatrix()
