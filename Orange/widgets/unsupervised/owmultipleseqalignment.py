@@ -1,12 +1,13 @@
 import numpy as np
 from AnyQt.QtCore import Qt
 
+
 from Orange.data import Table, Domain, StringVariable
 import Orange.misc
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
-from Orange.widgets import gui, settings
-from PyQt4.QtGui import QGridLayout
+from Orange.widgets import gui
+from Orange.widgets.settings import Setting
 
 
 class OWMultipleSequenceAlignment(OWWidget):
@@ -14,18 +15,26 @@ class OWMultipleSequenceAlignment(OWWidget):
     description = "Compute a matrix of pairwise sequence alignment distance."
     icon = "icons/MultipleSeqAlignment.svg"
 
+    align_score = 0
+    align_setting = Setting(False)
+    misalign_score = 1
+    misalign_setting = Setting(False)
+    indel_score = 1
+    indel_setting = Setting(False)
+
+    # Spinner arguments: label, value, minval, maxval, checked
+    score_settings = (('Custom alignment score', 'align_score', -100, 0, 'align_setting'),
+                      ('Custom misalignment score', 'misalign_score', 0, 100, 'misalign_setting'),
+                      ('Custom indel score', 'indel_score', 0, 100, 'indel_setting'))
+
+    # print(indel_score.default, align_score.default, misalign_score.default, Setting(5),
+    #       Setting(False).default)
+
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),
                ("Strings", Orange.data.Table)]
 
     raw_output = Orange.misc.DistMatrix(np.array([]))
-
-    miss_penalty = 1
-    skip_penalty = 1
-
-    #DELETE THIS
-    update_skip = settings.Setting(0)
-    update_miss = settings.Setting(0)
 
     class Error(OWWidget.Error):
         no_discrete_features = Msg("No discrete features")
@@ -36,36 +45,33 @@ class OWMultipleSequenceAlignment(OWWidget):
         ignoring_discrete = Msg("Ignoring discrete features")
         imputing_data = Msg("Imputing missing values")
 
-
     def __init__(self):
+        print(self.indel_score, self.align_score, self.misalign_score, Setting(5),
+              Setting(False).default)
         super().__init__()
 
         self.data = None
-        # No gui
 
-        smbox = gui.vBox(None, margin=0)
-        ssbox = gui.vBox(None, margin=0)
-        self.spin_miss = gui.spin(
-            smbox, self, "miss_penalty", minv=1, maxv=100,
-            controlWidth=80, alignment=Qt.AlignRight, callback=self.update_miss)
+        # print(self.indel_score.default, self.align_score.default, self.misalign_score.default, Setting(5), Setting(False).default)
 
-        self.spin_skip = gui.spin(
-            ssbox, self, "skip_penalty", minv=1, maxv=100,
-            controlWidth=80, alignment=Qt.AlignRight, callback=self.update_skip)
+        box = gui.vBox(self.controlArea, "Parameters")
+        # gui.spin(box, self, 'correct_score', 0, 100, step=1, box=None, label='Custom alignment score:',
+        #     callback=self.commit(),
+        #     checked='correct_setting', disabled=False, alignment=Qt.AlignRight, keyboardTracking=True, spinType=int)
 
-        buttonbox = gui.vBox(None, margin=0)
-        self.apply_button = gui.button(
-            buttonbox, self, "Run", callback=self.commit)
+        for lab, val, minval, maxval, chck in self.score_settings:
+            gui.spin(box, self, val, minval, maxval, label=lab, checked=chck)
 
+        gui.button(box, self, 'Update parameters', callback=self._invalidate, default=True)
 
-        self.layout().addWidget(gui.widgetLabel(smbox, "Miss penalty: "))
-        self.layout().addWidget(self.spin_miss)
-        self.layout().addWidget(gui.widgetLabel(ssbox, "Skip penalty: "))
-        self.layout().addWidget(self.spin_skip)
-        self.layout().addWidget(self.apply_button)
-
-        self.layout().setSizeConstraint(self.layout().SetFixedSize)
-
+    def _invalidate(self):
+        if not self.misalign_setting:
+            self.misalign_score = 1
+        if not self.align_setting:
+            self.align_score = 0
+        if not self.indel_setting:
+            self.indel_score = 1
+        self.commit()
 
     @check_sql_input
     def set_data(self, data):
@@ -76,6 +82,7 @@ class OWMultipleSequenceAlignment(OWWidget):
         self.commit()
 
     def commit(self):
+        print(self.indel_score, self.align_score, self.misalign_score)
         self.send("Distances", self.compute_alignment(self.data))
         self.send("Strings", self.data)
 
@@ -92,19 +99,14 @@ class OWMultipleSequenceAlignment(OWWidget):
         for row in range(1, len(p) + 1):
             dp[0][row] = row
 
-        if self is not None:
-            skip = self.skip_penalty
-            miss = self.miss_penalty
-        else:
-            skip = 1
-            miss = 1
-
         # compute dynamic programming table
         for i in range(1, len(s) + 1):
             for j in range(1, len(p) + 1):
-                dp[i, j] = min(dp[i - 1, j] + skip,
-                               dp[i, j - 1] + skip,
-                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1])*miss)
+                dp[i, j] = min(dp[i - 1, j] + self.indel_score,
+                               dp[i, j - 1] + self.indel_score,
+                               # dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]))
+                               dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]) * self.misalign_score + (s[i - 1] == p[j - 1])
+                               * self.align_score)
 
         # min edit distance is most bottom right element of dp
         min_distance = dp[len(s), len(p)]
@@ -126,8 +128,6 @@ class OWMultipleSequenceAlignment(OWWidget):
         # HACK
         n = data.approx_len()
         outdata = np.zeros([n, n])
-
-
         for i, row in enumerate(data):
             for j, rowCompare in enumerate(data[i+1::], i+1):
                 dist = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
@@ -138,6 +138,7 @@ class OWMultipleSequenceAlignment(OWWidget):
             Domain([], metas=[StringVariable("label")]),
             [[item] for item in data.get_column_view(data.domain.metas[0])[0]])
 
+        """ Mock """
         self.raw_output = Orange.misc.DistMatrix(data=np.array(outdata), row_items=labels)
         return self.raw_output
 
@@ -168,7 +169,7 @@ if __name__ == "__main__":
     ow = OWMultipleSequenceAlignment()
 
     # setup test data
-    domain = Domain([DiscreteVariable(name="dnaSeq", values=["TTAACTGAA", "ACTGTATAACTG", "ACTGACTG"])], [],
+    domain = Domain([DiscreteVariable(name="dnaSeq", values=["TTAAACTGAA", "ACTGTATAACTG", "ACTGACTG"])], [],
                         [StringVariable(name="dnaName")])
     data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
     metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna3"]])
@@ -178,8 +179,7 @@ if __name__ == "__main__":
     ow.set_data(d)
 
     # show this widget -> currently empty
-    ow.show()
-
+    # ow.show()
 
     # setup and show distance matrix
     disp = OWDistanceMatrix()
