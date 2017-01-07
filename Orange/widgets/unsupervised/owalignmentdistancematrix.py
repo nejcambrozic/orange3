@@ -197,17 +197,21 @@ class DistanceMatrixContextHandler(ContextHandler):
 
 
 class AlignmentWidget(QPlainTextEdit):
-    def __init__(self, parent, s1, s2):
+    def __init__(self, parent):
         super().__init__(parent)
         self.setReadOnly(True)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.setFocusPolicy(Qt.ClickFocus)
         self.setFocus()
-        self.setMinimumSize(300, 60)
-        self.move((parent.width() - self.width()) / 2, (parent.height() - self.height()) / 2)
         self.setFont(QFont("Courier", 10))
-        self.setPlainText("\n".join(self.get_alignment(s1, s2)))
+
+    def reset_alignment(self):
+        self.setPlainText("")
+
+    def change_alignment(self, s, p):
+        s1, s2 = self.get_alignment(s, p)
+        self.setPlainText("\n".join((s1, s2)))
 
     def insert_indel(self, word, index):
         return word[:index] + '-' + word[index:]
@@ -258,8 +262,6 @@ class AlignmentWidget(QPlainTextEdit):
 
         return s_aligned, p_aligned
 
-    def focusOutEvent(self, e):
-        self.close()
 
 
 class OWAlignmentDistanceMatrix(widget.OWWidget):
@@ -299,11 +301,15 @@ class OWAlignmentDistanceMatrix(widget.OWWidget):
         view.verticalHeader().setDefaultAlignment(
             Qt.AlignRight | Qt.AlignVCenter)
         selmodel = SymmetricSelectionModel(view.model(), view)
-        selmodel.currentChanged.connect(self.print_alignment)
         view.setSelectionModel(selmodel)
         view.setSelectionBehavior(QTableView.SelectItems)
+
+        self.aw = AlignmentWidget(self)
         self.mainArea.layout().addWidget(view)
 
+        alignment_box = gui.hBox(self.mainArea)
+        alignment_box.layout().addWidget(self.aw)
+        alignment_box.setFixedHeight(60)
         settings_box = gui.hBox(self.mainArea)
 
         self.annot_combo = gui.comboBox(
@@ -319,13 +325,15 @@ class OWAlignmentDistanceMatrix(widget.OWWidget):
                               "Send Selected", "Send Automatically", box=None)
         acb.setFixedWidth(200)
         # Signal must be connected after self.commit is redirected
-        selmodel.selectionChanged.connect(self.commit)
+        selmodel.selectionChanged.connect(self.selection_changed_handler)
 
-    def print_alignment(self, index):
-        if index.row() == index.column():
-            return
-        a = AlignmentWidget(self, str(self.strings[index.row()][0]), str(self.strings[index.column()][0]))
-        a.show()
+    def selection_changed_handler(self, selection):
+        index = selection.indexes()
+        if not index or len(index) == 1:
+            self.aw.reset_alignment()
+        elif self.strings is not None:
+            self.aw.change_alignment(str(self.strings[index[1].row()][0]), str(self.strings[index[1].column()][0]))
+        self.commit()
 
     def sizeHint(self):
         return QSize(800, 500)
