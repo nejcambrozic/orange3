@@ -209,60 +209,8 @@ class AlignmentWidget(QPlainTextEdit):
     def reset_alignment(self):
         self.setPlainText("")
 
-    def change_alignment(self, s, p):
-        s1, s2 = self.get_alignment(s, p)
-        self.setPlainText("\n".join((s1, s2)))
-
-    def insert_indel(self, word, index):
-        return word[:index] + '-' + word[index:]
-
-    def get_alignment(self, s, p):
-        # TODO: implement - return best alignment as a pair of strings
-        """
-        Returns the best alignments of s and p
-        """
-        # init matrices
-        dp = np.zeros((len(s) + 1, len(p) + 1), dtype=int)
-        bt = np.zeros((len(s) + 1, len(p) + 1), dtype=int)
-
-        # init first column and row of dynamic programming table
-        for col in range(1, len(s) + 1):
-            dp[col][0] = col
-        for row in range(1, len(p) + 1):
-            dp[0][row] = row
-
-        # compute dynamic programming table and track best path
-        for i in range(1, len(s) + 1):
-            for j in range(1, len(p) + 1):
-                (dp[i, j], bt[i, j]) = min( (dp[i - 1, j - 1] + (s[i - 1] != p[j - 1]), 0), # diagonal
-                                            (dp[i - 1, j] + 1, 1), # horizontal
-                                            (dp[i, j - 1] + 1, 2)) # vertical
-
-
-        # initialize the aligned strings as the input strings
-        s_aligned, p_aligned = s, p
-
-        # backtrack to the edge of the matrix starting bottom right
-        while i * j != 0:
-            if bt[i][j] == 1: # horizontal
-                i -= 1
-                p_aligned = self.insert_indel(p_aligned, j)
-            elif bt[i][j] == 2: # vertical
-                j -= 1
-                s_aligned = self.insert_indel(s_aligned, i)
-            else: # diagonal
-                i -= 1
-                j -= 1
-
-        # prepend indels until (0,0)
-        for repeat in range(i):
-            p_aligned = self.insert_indel(p_aligned, 0)
-        for repeat in range(j):
-            s_aligned = self.insert_indel(s_aligned, 0)
-
-        return s_aligned, p_aligned
-
-
+    def change_alignment(self, s):
+        self.setPlainText(s)
 
 class OWAlignmentDistanceMatrix(widget.OWWidget):
     name = "Alignment Distance Matrix"
@@ -271,7 +219,7 @@ class OWAlignmentDistanceMatrix(widget.OWWidget):
     priority = 201
 
     inputs = [("Distances", DistMatrix, "set_distances"),
-              ("Strings", Table, "set_strings")]
+              ("Alignments", Table, "set_alignments")]
     outputs = [("Distances", DistMatrix),
                ("Table", Table)]
 
@@ -285,7 +233,7 @@ class OWAlignmentDistanceMatrix(widget.OWWidget):
     def __init__(self):
         super().__init__()
         self.distances = None
-        self.strings = None
+        self.alignments = None
         self.items = None
 
         self.tablemodel = DistanceMatrixModel()
@@ -301,6 +249,7 @@ class OWAlignmentDistanceMatrix(widget.OWWidget):
         view.verticalHeader().setDefaultAlignment(
             Qt.AlignRight | Qt.AlignVCenter)
         selmodel = SymmetricSelectionModel(view.model(), view)
+        selmodel.currentChanged.connect(self.current_changed_handler)
         view.setSelectionModel(selmodel)
         view.setSelectionBehavior(QTableView.SelectItems)
 
@@ -327,12 +276,19 @@ class OWAlignmentDistanceMatrix(widget.OWWidget):
         # Signal must be connected after self.commit is redirected
         selmodel.selectionChanged.connect(self.selection_changed_handler)
 
+    def current_changed_handler(self, index):
+        if index.row() == index.column():
+            self.aw.reset_alignment()
+        else:
+            n = self.tablemodel.dimension()
+            xy = index.row() * n + index.column()
+            self.aw.change_alignment(str(self.alignments[xy][0]))
+
     def selection_changed_handler(self, selection):
         index = selection.indexes()
+        # Remove alignment if click off matrix
         if not index or len(index) == 1:
             self.aw.reset_alignment()
-        elif self.strings is not None:
-            self.aw.change_alignment(str(self.strings[index[1].row()][0]), str(self.strings[index[1].column()][0]))
         self.commit()
 
     def sizeHint(self):
@@ -368,8 +324,8 @@ class OWAlignmentDistanceMatrix(widget.OWWidget):
             self.tableview.resizeColumnsToContents()
         self.commit()
 
-    def set_strings(self, strings):
-        self.strings = strings
+    def set_alignments(self, alignments):
+        self.alignments = alignments
 
     def _invalidate_annotations(self):
         if self.distances is not None:

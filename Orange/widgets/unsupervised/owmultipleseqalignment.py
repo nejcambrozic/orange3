@@ -1,7 +1,7 @@
 import numpy as np
 from AnyQt.QtCore import Qt
 
-from Orange.data import Table
+from Orange.data import Table, Domain, StringVariable, DiscreteVariable
 import Orange.misc
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
@@ -29,7 +29,6 @@ class OWMultipleSequenceAlignment(OWWidget):
 
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),
-               ("Strings", Orange.data.Table),
                ("Alignments", Orange.data.Table)]
 
     raw_output = Orange.misc.DistMatrix(np.array([]))
@@ -74,9 +73,10 @@ class OWMultipleSequenceAlignment(OWWidget):
         self.commit()
 
     def commit(self):
-        self.send("Distances", self.compute_alignment(self.data))
-        self.send("Strings", self.data)
-        self.send("Alignments", self.alignment)
+        sc, al = self.compute_alignment(self.data)
+        self.send("Distances", sc)
+        #self.send("Strings", self.data)
+        self.send("Alignments", al)
 
     def edit_distance(self, s, t):
         def sig(c1, c2):
@@ -158,32 +158,32 @@ class OWMultipleSequenceAlignment(OWWidget):
             self.Error.no_discrete_features()
             return
 
-        # HACK
         n = data.approx_len()
         outdata = np.zeros([n, n])
-        alignment = np.zeros([n, n])
+        alignment = np.zeros([n*n, 1])
         counter = 0
 
         values = []
-
         for i, row in enumerate(data):
             for j, rowCompare in enumerate(data[i + 1::], i + 1):
                 dist, al = self.edit_distance(str(row[0].value), str(rowCompare[0].value))
                 outdata[i, j] = dist
                 outdata[j, i] = dist
-                alignment[i, j] = counter
-                alignment[j, i] = counter
-                values.append(al) #append the alignement to domain values
+                alignment[i*n+j, 0] = counter
+                alignment[j*n+i, 0] = counter
+                values.append(al) # Append the alignement to domain values
                 counter += 1
+
 
         labels = Table.from_list(
             Domain([], metas=[StringVariable("label")]),
             [[item] for item in data.get_column_view(data.domain.metas[0])[0]])
 
-        domain = Domain([DiscreteVariable(name="Alignments", values=values)]*n)
+        domain = Domain([DiscreteVariable(name="Alignments", values=values)])
+
         self.alignment = Table.from_numpy(domain=domain, X=alignment)
         self.raw_output = Orange.misc.DistMatrix(data=np.array(outdata), row_items=labels)
-        return self.raw_output
+        return self.raw_output, self.alignment
 
 
 """
@@ -217,7 +217,6 @@ if __name__ == "__main__":
     data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
     metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna4"]])
     d = Table.from_numpy(domain=domain, X=data, metas=metas)
-
     # set the data
     ow.set_data(d)
 
@@ -227,7 +226,7 @@ if __name__ == "__main__":
     # setup and show distance matrix
     disp = OWAlignmentDistanceMatrix()
     disp.set_distances(ow.raw_output)
-    disp.set_strings(d)
+    disp.set_alignments(ow.alignment)
     disp.show()
     a.exec_()
 
