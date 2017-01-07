@@ -81,70 +81,65 @@ class OWMultipleSequenceAlignment(OWWidget):
     def edit_distance(self, s, t):
         def sig(c1, c2):
             if c1 == "" or c2 == "":
-                return self.indel_score
+                ret = self.indel_score
             elif c1 == c2:
-                return self.align_score
+                ret = self.align_score
             else:
-                return self.misalign_score
+                ret = self.misalign_score
+            #print(ret)
+            return ret
 
         # create matrix
         # M = [[0 for _ in range(len(t) + 1)] for _ in range(len(s) + 1)]
         M = np.zeros((len(s) + 1, len(t) + 1), dtype=int)
-        d = {}
+        directions = {}
 
         # init sides
         for i in range(0, len(s) + 1):
             M[i, 0] = sum([sig(s[k], "") for k in range(i)])
+            directions[i,0] = 2
         for j in range(0, len(t) + 1):
             M[0, j] = sum([sig("", t[k]) for k in range(j)])
+            directions[0, j] = 1
+
+        directions[0,0] = 4
 
         # fill matrix
         for i in range(1, len(s) + 1):
             for j in range(1, len(t) + 1):
-                val = min(M[i - 1, j] + sig(s[i - 1], ""),
-                           M[i, j - 1] + sig("", t[j - 1]),
-                           M[i - 1, j - 1] + sig(s[i - 1], t[j - 1]))
+                val,dire = min((M[i - 1, j] + sig(s[i - 1], ""), 2),
+                               (M[i, j - 1] + sig("", t[j - 1]), 1),
+                               (M[i - 1, j - 1] + sig(s[i - 1], t[j - 1]), 0))
                 M[i, j] = val
+                directions[i, j] = dire
 
         i = len(s)
         j = len(t)
 
-        def nxt():
-            if i == 0 and j == 0:
-                return (0, 0, 4)
-            if i == 0:
-                return (i, j - 1, 2)
-            if j == 0:
-                return (i - 1, j, 1)
-
-            return min((M[i - 1, j - 1], (i - 1, j - 1, 0)),
-                       (M[i - 1, j], (i - 1, j, 1)),
-                       (M[i, j - 1], (i, j - 1, 2)))[1]
-
-        sp = ""
-        tp = ""
+        bufs = ""
+        buft = ""
 
         while i > 0 and j > 0:
-            pi = i
-            pj = j
-            (i, j, mov) = nxt()
-            # print((i, j, mov))
+            d = directions[i, j]
+            if(d == 4): break
+            elif(d == 0):
+                i -= 1; j-= 1
+                bufs += s[i]
+                buft += t[j]
+            elif(d == 1):
+                j-= 1
+                bufs += "_"
+                buft += t[j]
+            elif(d == 2):
+                i -= 1
+                bufs += s[i]
+                buft += "_"
 
-            if mov == 0:
-                sp += s[pi - 1]
-                tp += t[pj - 1]
-            elif mov == 2:
-                sp += "-"
-                tp += t[pj - 1]
-            else:
-                sp += s[pi - 1]
-                tp += "-"
+        bufs = bufs[::-1]
+        buft = buft[::-1]
+        alignstr = bufs + "\n" + buft
 
-        sp = sp[::-1]
-        tp = tp[::-1]
-        assert(len(sp) == len(tp))
-
-        return M[len(s), len(t)],  sp + "\n" + tp
+        return M[len(s), len(t)], alignstr
 
     def compute_alignment(self, data):
         # Check data
@@ -212,11 +207,15 @@ if __name__ == "__main__":
     ow = OWMultipleSequenceAlignment()
 
     # setup test data
-    domain = Domain([DiscreteVariable(name="dnaSeq", values=["ABCD", "ABD", "AAAD"])], [],
+    domain = Domain([DiscreteVariable(name="dnaSeq", values=["ABCD", "ABC", "AAAD"])], [],
                     [StringVariable(name="dnaName")])
-    data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
-    metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna4"]])
+    data = np.array([[0], [1], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
+    metas = np.array([["dna1"], ["dna2"], ["dna3"]])
     d = Table.from_numpy(domain=domain, X=data, metas=metas)
+
+    ow.align_score = 0
+    ow.misalign_score = 1
+    ow.indel_score = 1
 
     # set the data
     ow.set_data(d)
