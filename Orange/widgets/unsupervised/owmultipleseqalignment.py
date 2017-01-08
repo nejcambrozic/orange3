@@ -79,13 +79,13 @@ class OWMultipleSequenceAlignment(OWWidget):
 
     def edit_distance(self, s, t):
         def sig(c1, c2):
+            """Sigma function - returns cost"""
             if c1 == "" or c2 == "":
                 ret = self.indel_score
             elif c1 == c2:
                 ret = self.align_score
             else:
                 ret = self.misalign_score
-            #print(ret)
             return ret
 
         # create matrix
@@ -120,16 +120,16 @@ class OWMultipleSequenceAlignment(OWWidget):
 
         while i > 0 and j > 0:
             d = directions[i, j]
-            if(d == 4): break
-            elif(d == 0):
-                i -= 1; j-= 1
+            if d == 4: break
+            elif d == 0:
+                i -= 1; j -= 1
                 bufs += s[i]
                 buft += t[j]
-            elif(d == 1):
+            elif d == 1:
                 j-= 1
                 bufs += "_"
                 buft += t[j]
-            elif(d == 2):
+            elif d == 2:
                 i -= 1
                 bufs += s[i]
                 buft += "_"
@@ -137,8 +137,9 @@ class OWMultipleSequenceAlignment(OWWidget):
         bufs = bufs[::-1]
         buft = buft[::-1]
         alignstr = bufs + "\n" + buft
+        min_distance = M[len(s), len(t)]
 
-        return M[len(s), len(t)], alignstr
+        return min_distance, alignstr
 
     def compute_alignment(self, data):
         # Check data
@@ -185,15 +186,6 @@ class OWMultipleSequenceAlignment(OWWidget):
  the input of this widget.
  Then pipes the output of this widget into the
  distance matrix widget to show the results
-
- NOTE: if you wish to see anything the widget
-    displays (currently nothing), then
-    unncoment ow.show() line
-
- TODO: figure out, why it throws error after
-       finishing,
-       figure out how to properly pipe output
-       without using raw_output
 """
 if __name__ == "__main__":
     import sys
@@ -208,8 +200,8 @@ if __name__ == "__main__":
     # setup test data
     domain = Domain([DiscreteVariable(name="dnaSeq", values=["ABCD", "ABC", "AAAD"])], [],
                     [StringVariable(name="dnaName")])
-    data = np.array([[0], [1], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
-    metas = np.array([["dna1"], ["dna2"], ["dna3"]])
+    data = np.array([[0], [1], [2], [3]])  # this data MUST be a 2d array -> otherwise id doesn't work
+    metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna4"]])
     d = Table.from_numpy(domain=domain, X=data, metas=metas)
 
     ow.align_score = 0
@@ -218,7 +210,7 @@ if __name__ == "__main__":
     # set the data
     ow.set_data(d)
 
-    # show this widget -> currently empty
+    # show this widget -> NOTE: changing values here will not update AlignDistMat below
     # ow.show()
 
     # setup and show distance matrix
