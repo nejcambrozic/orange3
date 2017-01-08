@@ -25,7 +25,7 @@ class OWMultipleSequenceAlignment(OWWidget):
     # Spinner arguments: label, value, minval, maxval, checked
     score_settings = (('Custom alignment score', 'align_score', -100, 0, 'align_setting'),
                       ('Custom misalignment score', 'misalign_score', 0, 100, 'misalign_setting'),
-                      ('Custom indel score', 'indel_score', 0, 100, 'indel_setting'))
+                      ('Custom gap score', 'indel_score', 0, 100, 'indel_setting'))
 
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),

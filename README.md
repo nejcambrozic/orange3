@@ -111,16 +111,47 @@ Evolution of genes
 ### New features
 #### Multiple Sequence Alignment
 
+The Multiple Sequence Alignment widget takes in multiple sequences and calculates minimal distance and respective alignment for each pair of sequences.
+It implements Needleman-Wunsch dynamic programming algorithm for optimal global alignment.
+
+Widget enables setting custom scores:
+* gap score - a non negative integer *(default = 1)*
+* substitution score - a non negative integer *(default = 1)*
+* alignment score - zero or negative integer *(default = 0)*
+
+
 	inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),
                ("Alignments", Orange.data.Table)]
 
+
 #### Alignment Distance Matrix
+
+Alignment Distance Matrix widget takes in pairwise distances and alignments from Multiple Sequence alignment widget and
+displays them in a manner, similar to that of the Distance Matrix widget. Clicking on the cell corresponding to a pair
+of sequences displays their optimal alignment.
 
 	inputs = [("Distances", DistMatrix, "set_distances"),
               ("Alignments", Table, "set_alignments")]
     outputs = [("Distances", DistMatrix),
                ("Table", Table)]
 ### Case study
+
+The image below shows a minimal pipeline for obtaining and visualizing sequence alignments using Multiple Sequence
+Alignment widget.
+
+1. Data is input using the *File* widget. Sequence names are *meta* type strings and sequences' type has
+to be *nominal* and is set as *feature* in the widget's dialog window.
+
+2. Rows of interest are selected using the *Data Table* widget.
+
+3. Selected data is sent to the *Multiple Sequence Alignment* widget. Score values can be set using the widget's dialog
+or can be left at default values.
+
+4. Distances and alignments are passed on to the *Alignment Distance Matrix* widget. Its dialog shows a table of all distances.
+Sequence names can be displayed for improved readability. Clicking on a cell in the table displays optimal alignment for
+the chosen pair of sequences at the bottom of the dialog.
+
+
  ![enter image description here](https://lh3.googleusercontent.com/-I3_khTVbleU/WHHtVOflGyI/AAAAAAAAADI/MUDmVVULPOUNX9eGQ1uKPosFdpNbU_99wCLcB/s0/workflow.PNG "workflow.PNG")
 
