@@ -104,3 +104,23 @@ Windows dev setup
 Windows + GCC:
 
     python setup.py build_ext --inplace --compile=mingw32
+
+Evolution of genes
+-----------------
+
+### New features
+#### Multiple Sequence Alignment
+
+	inputs = [("Data", Orange.data.Table, "set_data")]
+    outputs = [("Distances", Orange.misc.DistMatrix),
+               ("Alignments", Orange.data.Table)]
+
+#### Alignment Distance Matrix
+
+	inputs = [("Distances", DistMatrix, "set_distances"),
+              ("Alignments", Table, "set_alignments")]
+    outputs = [("Distances", DistMatrix),
+               ("Table", Table)]
+### Case study
+ ![enter image description here](https://lh3.googleusercontent.com/-I3_khTVbleU/WHHtVOflGyI/AAAAAAAAADI/MUDmVVULPOUNX9eGQ1uKPosFdpNbU_99wCLcB/s0/workflow.PNG "workflow.PNG")
+

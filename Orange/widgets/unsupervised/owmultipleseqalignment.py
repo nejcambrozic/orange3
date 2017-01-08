@@ -1,8 +1,8 @@
 import numpy as np
 from AnyQt.QtCore import Qt
 
-from Orange.data import Table, Domain, StringVariable, DiscreteVariable
 import Orange.misc
+from Orange.data import Table, Domain, StringVariable, DiscreteVariable
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
 from Orange.widgets import gui
@@ -75,7 +75,6 @@ class OWMultipleSequenceAlignment(OWWidget):
     def commit(self):
         sc, al = self.compute_alignment(self.data)
         self.send("Distances", sc)
-        #self.send("Strings", self.data)
         self.send("Alignments", al)
 
     def edit_distance(self, s, t):
@@ -166,7 +165,7 @@ class OWMultipleSequenceAlignment(OWWidget):
                 outdata[j, i] = dist
                 alignment[i*n+j, 0] = counter
                 alignment[j*n+i, 0] = counter
-                values.append(al) # Append the alignement to domain values
+                values.append(al)  # Append the alignement to domain values
                 counter += 1
 
 
