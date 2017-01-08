@@ -75,7 +75,10 @@ class DistanceMatrixModel(QAbstractTableModel):
         return QBrush(color)
 
     def color_for_cell(self, row, col):
-        return QBrush(QColor.fromHsv(120, self.colors[row, col], 255))
+        color = self.colors[row, col]
+        if color < 0:
+            color = 0
+        return QBrush(QColor.fromHsv(120, color, 255))
 
     def data(self, index, role=Qt.DisplayRole):
         if role == Qt.TextAlignmentRole:

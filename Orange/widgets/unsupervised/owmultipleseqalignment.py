@@ -200,11 +200,11 @@ if __name__ == "__main__":
     # setup test data
     domain = Domain([DiscreteVariable(name="dnaSeq", values=["ABCD", "ABC", "AAAD"])], [],
                     [StringVariable(name="dnaName")])
-    data = np.array([[0], [1], [2], [3]])  # this data MUST be a 2d array -> otherwise id doesn't work
+    data = np.array([[0], [1], [2], [2]])  # this data MUST be a 2d array -> otherwise id doesn't work
     metas = np.array([["dna1"], ["dna2"], ["dna3"], ["dna4"]])
     d = Table.from_numpy(domain=domain, X=data, metas=metas)
 
-    ow.align_score = 0
+    ow.align_score = -1
     ow.misalign_score = 1
     ow.indel_score = 1
     # set the data
