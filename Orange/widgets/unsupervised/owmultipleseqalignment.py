@@ -10,10 +10,10 @@ from Orange.widgets.settings import Setting
 
 
 
-class OWMultipleSequenceAlignment(OWWidget):
-    name = "Multiple Sequence Alignment"
+class OWPairwiseSequenceAlignment(OWWidget):
+    name = "Pairwise Sequence Alignment"
     description = "Compute a matrix of pairwise sequence alignment distance."
-    icon = "icons/MultipleSeqAlignment.svg"
+    icon = "icons/PairwiseSeqAlignment.svg"
 
     align_score = 0
     align_setting = Setting(False)
@@ -25,7 +25,7 @@ class OWMultipleSequenceAlignment(OWWidget):
     # Spinner arguments: label, value, minval, maxval, checked
     score_settings = (('Custom alignment score', 'align_score', -100, 0, 'align_setting'),
                       ('Custom misalignment score', 'misalign_score', 0, 100, 'misalign_setting'),
-                      ('Custom gap score', 'indel_score', 0, 100, 'indel_setting'))
+                      ('Custom indel score', 'indel_score', 0, 100, 'indel_setting'))
 
     inputs = [("Data", Orange.data.Table, "set_data")]
     outputs = [("Distances", Orange.misc.DistMatrix),
@@ -195,7 +195,7 @@ if __name__ == "__main__":
     from Orange.widgets.unsupervised.owalignmentdistancematrix import OWAlignmentDistanceMatrix
 
     a = QApplication(sys.argv)
-    ow = OWMultipleSequenceAlignment()
+    ow = OWPairwiseSequenceAlignment()
 
     # setup test data
     domain = Domain([DiscreteVariable(name="dnaSeq", values=["ABCD", "ABC", "AAAD"])], [],
